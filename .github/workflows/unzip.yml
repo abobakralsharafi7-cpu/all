@@ -14,9 +14,10 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Unzip project
+      - name: Unzip project without workflows
         run: |
           unzip -o proof-daftar-github-ready.zip -d extracted
+          rm -rf extracted/.github
           cp -r extracted/. .
           rm -rf extracted
           rm -f proof-daftar-github-ready.zip
