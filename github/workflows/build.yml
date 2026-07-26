@@ -1,0 +1,63 @@
+name: بناء APK بروف دفتر
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تجهيز الملفات
+        run: |
+          rm -rf project 2>/dev/null || true
+          if [ -f "proof-daftar-github-ready.zip" ]; then
+            sudo apt-get install -y unzip -qq
+            unzip -o proof-daftar-github-ready.zip
+          fi
+          if [ -d "project" ]; then
+            cp -rf project/* . 2>/dev/null || true
+            cp -rf project/.github . 2>/dev/null || true
+            rm -rf project
+          fi
+          rm -f proof-daftar-github-ready.zip || true
+          ls src/lib/ | head -n 20
+
+      - name: إصلاح جميع المسارات @/
+        run: |
+          sed -i 's|from "@/lib/|from "../lib/|g' src/app/page.tsx
+          sed -i 's|from "@/components/|from "../components/|g' src/app/page.tsx
+          sed -i 's|from "@/lib/db/|from "../lib/db/|g' src/app/page.tsx
+          sed -i 's|from "@/app/|from "./|g' src/app/page.tsx || true
+          sed -i "s|from '@/lib/|from '../lib/|g" src/app/page.tsx
+          grep "from.*lib" src/app/page.tsx | head -n 10
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: بناء
+        run: |
+          npm install --force
+          npm run build
+          if [ ! -d "android" ]; then npx cap add android; fi
+          cp -r icons/android/* android/app/src/main/res/ || true
+          npx cap sync android
+
+      - name: بناء APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --offline -Dorg.gradle.jvmargs="-Xmx2048m" || ./gradlew assembleDebug
+
+      - name: رفع APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-daftar-apk-professor
+          path: android/app/build/outputs/apk/debug/app-debug.apk
