@@ -1,0 +1,34 @@
+name: فك الضغط تلقائياً
+on: [push]
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: تحميل الكود
+        uses: actions/checkout@v4
+
+      - name: فك ضغط المشروع
+        run: |
+          if [ -f "proof-daftar-github-ready.zip" ]; then
+            echo "📦 وجد الملف المضغوط، جاري فك الضغط..."
+            sudo apt-get install -y unzip -qq
+            unzip -o proof-daftar-github-ready.zip
+            
+            # انقل كل الملفات من مجلد project إلى الجذر
+            cp -r project/* . || true
+            cp -r project/.github . 2>/dev/null || true
+            cp -r project/.* . 2>/dev/null || true
+            
+            # احذف المجلد والملف المضغوط
+            rm -rf project proof-daftar-github-ready.zip
+            
+            # احفظ التغييرات
+            git config user.name "Professor"
+            git config user.email "professor@proof-daftar.com"
+            git add .
+            git commit -m "فك الضغط تلقائياً - تجهيز بروف دفتر للبناء - Professor" || echo "لا يوجد تغيير"
+            git push
+            echo "✅ تم فك الضغط وحفظ الملفات"
+          else
+            echo "لا يوجد ملف مضغوط"
+          fi
