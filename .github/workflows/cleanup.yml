@@ -1,0 +1,44 @@
+name: حذف الملفات المفكوكة القديمة
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Delete old extracted files
+        run: |
+          shopt -s dotglob nullglob
+
+          for item in *; do
+            case "$item" in
+              .git|.github|proof-daftar-mobile-fixes.zip|proof-daftar-github-ready.zip)
+                echo "Keep: $item"
+                ;;
+              *)
+                echo "Delete: $item"
+                rm -rf "$item"
+                ;;
+            esac
+          done
+
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No files to delete"
+          else
+            git commit -m "Delete old extracted files"
+            git push
+          fi
