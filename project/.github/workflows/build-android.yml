@@ -1,1 +1,125 @@
-..
+name: بناء تطبيق بروف دفتر - Proof Daftre APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # يسمح بالتشغيل اليدوي من GitHub
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 تحميل الكود
+        uses: actions/checkout@v4
+
+      - name: ☕ إعداد Java 17 (مطلوب لبناء أندرويد)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🟢 إعداد Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 🤖 إعداد Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 تثبيت الحزم
+        run: npm install
+
+      - name: 🔨 بناء الويب (Next.js -> out/)
+        run: npm run build
+
+      - name: 📱 إضافة منصة أندرويد (إذا لم تكن موجودة)
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "مجلد android موجود، تخطي الإضافة"
+          fi
+
+      - name: 🎨 نسخ شعار بروف دفتر كأيقونة
+        run: |
+          if [ -d "icons/android" ]; then
+            cp -r icons/android/* android/app/src/main/res/ || true
+            echo "✅ تم نسخ الأيقونات"
+          else
+            echo "⚠️ مجلد icons/android غير موجود"
+          fi
+
+      - name: 🔄 مزامنة مع أندرويد
+        run: npx cap sync android
+
+      - name: 🏗️ بناء APK (Debug)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: 📤 رفع APK كـ Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-daftar-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: 📊 معلومات APK
+        run: |
+          ls -lh android/app/build/outputs/apk/debug/
+          echo "✅ تم بناء APK بنجاح!"
+
+  build-release:
+    needs: build-android
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 تحميل الكود
+        uses: actions/checkout@v4
+
+      - name: ☕ إعداد Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🟢 إعداد Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 🤖 إعداد Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 تثبيت الحزم
+        run: npm install
+
+      - name: 🔨 بناء الويب
+        run: npm run build
+
+      - name: 🔄 مزامنة
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          cp -r icons/android/* android/app/src/main/res/ || true
+          npx cap sync android
+
+      - name: 🏗️ بناء AAB (للرفع على Google Play)
+        run: |
+          cd android
+          ./gradlew bundleRelease
+
+      - name: 📤 رفع AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-daftar-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
