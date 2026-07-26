@@ -1,33 +1,70 @@
 name: بناء APK بروف دفتر
 on: [push, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: فك الضغط
+
+      - name: فك الضغط و تجهيز الملفات
         run: |
-          [ -f "proof-daftar-github-ready.zip" ] && unzip -o proof-daftar-github-ready.zip && cp -r project/* . && rm -rf project proof-daftar-github-ready.zip || true
-          [ -d "project" ] && cp -r project/* . && rm -rf project || true
-          ls src/lib/ | head
-      - name: إصلاح كل @/
+          rm -rf project 2>/dev/null || true
+          if [ -f "proof-daftar-github-ready.zip" ]; then
+            sudo apt-get install -y unzip -qq
+            unzip -o proof-daftar-github-ready.zip
+            cp -r project/* . 2>/dev/null || true
+            cp -r project/.github . 2>/dev/null || true
+            rm -rf project proof-daftar-github-ready.zip
+          fi
+          if [ -d "project" ]; then
+            cp -rf project/* . 2>/dev/null || true
+            rm -rf project
+          fi
+          rm -f proof-daftar-github-ready.zip || true
+          ls -lh src/lib/ | head -n 20
+
+      - name: إصلاح جميع المسارات @/
         run: |
-          find src -type f -exec sed -i 's|@/lib/|../lib/|g; s|@/components/|../components/|g; s|@/app/|./|g' {} \; || true
-          grep -n "from.*lib" src/app/page.tsx | head -n 5
-          grep -n "from.*lib" src/components/UnlimitedImage.tsx | head -n 5
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/lib/|../lib/|g' {} \; || true
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/components/|../components/|g' {} \; || true
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/app/|../app/|g' {} \; || true
+          sed -i "s|from './page-types'|from '../app/page-types'|g" src/components/VirtualVoucherList.tsx || true
+          sed -i 's|from "./page-types"|from "../app/page-types"|g' src/components/VirtualVoucherList.tsx || true
+          sed -i "s|from './UnlimitedImage'|from './UnlimitedImage'|g" src/components/VirtualVoucherList.tsx || true
+          echo "=== بعد الإصلاح ==="
+          grep -n "from.*lib\|from.*page-types" src/app/page.tsx src/components/VirtualVoucherList.tsx | head -n 15
+
       - uses: actions/setup-java@v4
-        with: { distribution: 'temurin', java-version: '17' }
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with:
+          node-version: '22'
+
       - uses: android-actions/setup-android@v3
-      - run: |
+
+      - name: بناء التطبيق
+        run: |
           npm install
           npm run build
-          if [ ! -d "android" ]; then npx cap add android; fi
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
           cp -r icons/android/* android/app/src/main/res/ || true
           npx cap sync android
-      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v4
+
+      - name: بناء APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: رفع APK
+        uses: actions/upload-artifact@v4
         with:
           name: proof-daftar-apk-professor
           path: android/app/build/outputs/apk/debug/app-debug.apk
