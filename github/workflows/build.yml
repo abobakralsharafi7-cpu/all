@@ -1,0 +1,57 @@
+name: بناء بروف دفتر APK - Professor
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: تحميل الكود
+        uses: actions/checkout@v4
+
+      - name: إعداد Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: إعداد Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: إعداد Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: إصلاح مسارات الاستيراد
+        run: |
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/lib/|../lib/|g' {} \; || true
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/components/|../components/|g' {} \; || true
+
+      - name: تثبيت وبناء الويب
+        run: |
+          npm install
+          npm run build
+
+      - name: تجهيز أندرويد
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          cp -r icons/android/* android/app/src/main/res/ || true
+          npx cap sync android
+
+      - name: بناء APK Release (بدون توقيع - للتجربة)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: رفع APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Professor-Release-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
