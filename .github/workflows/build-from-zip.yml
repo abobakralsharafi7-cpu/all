@@ -11,10 +11,10 @@ jobs:
           if [ -f "proof-daftar-github-ready.zip" ]; then
             sudo apt-get install -y unzip -qq
             unzip -o proof-daftar-github-ready.zip
-            cp -r project/* . || true
+            cp -r project/* . 2>/dev/null || true
             cp -r project/.github . 2>/dev/null || true
-            echo "✅ تم فك الضغط"
-            ls -lh
+            cp -r project/.* . 2>/dev/null || true
+            ls -lh package.json
           fi
 
       - uses: actions/setup-java@v4
@@ -25,7 +25,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - uses: android-actions/setup-android@v3
 
