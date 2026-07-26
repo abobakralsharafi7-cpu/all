@@ -1,50 +1,60 @@
-name: بناء بروف دفتر APK - Professor
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+name: بناء APK بروف دفتر
+on: [push, workflow_dispatch]
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: تحميل الكود
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: إعداد Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+      - name: فك الضغط و تجهيز الملفات
+        run: |
+          echo "=== قبل ==="
+          ls -lh | head -n 20
+          if [ -f "proof-daftar-github-ready.zip" ]; then
+            echo "📦 فك ضغط ZIP..."
+            sudo apt-get install -y unzip -qq
+            unzip -o proof-daftar-github-ready.zip
+          fi
+          if [ -d "project" ]; then
+            echo "📂 نقل من project/ إلى الجذر..."
+            cp -rf project/* . 2>/dev/null || true
+            cp -rf project/.github . 2>/dev/null || true
+            rm -rf project
+          fi
+          rm -f proof-daftar-github-ready.zip || true
+          echo "=== بعد ==="
+          ls -lh | head -n 20
+          ls -lh src/lib/ | head -n 20
 
-      - name: إعداد Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: إعداد Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: إصلاح مسارات الاستيراد
+      - name: إصلاح المسارات
         run: |
           find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/lib/|../lib/|g' {} \; || true
           find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/components/|../components/|g' {} \; || true
 
-      - name: تثبيت وبناء الويب
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: بناء التطبيق
         run: |
           npm install
           npm run build
-
-      - name: تجهيز أندرويد
-        run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           cp -r icons/android/* android/app/src/main/res/ || true
           npx cap sync android
 
-      - name: بناء APK Release (بدون توقيع - للتجربة)
+      - name: بناء APK
         run: |
           cd android
           chmod +x gradlew
@@ -53,5 +63,5 @@ jobs:
       - name: رفع APK
         uses: actions/upload-artifact@v4
         with:
-          name: Professor-Release-APK
+          name: proof-daftar-apk-professor
           path: android/app/build/outputs/apk/debug/app-debug.apk
