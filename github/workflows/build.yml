@@ -21,6 +21,7 @@ jobs:
             echo "📂 نقل من project/ إلى الجذر..."
             cp -rf project/* . 2>/dev/null || true
             cp -rf project/.github . 2>/dev/null || true
+            cp -rf project/.* . 2>/dev/null || true
             rm -rf project
           fi
           rm -f proof-daftar-github-ready.zip || true
