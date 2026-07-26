@@ -15,9 +15,17 @@ jobs:
             cp -r project/* . 2>/dev/null || true
             cp -r project/.* . 2>/dev/null || true
             rm -rf project proof-daftar-github-ready.zip
-            echo "=== الملفات ==="
-            ls -lh src/lib/ | head -n 20
           fi
+          ls -lh src/lib/ | head -n 20
+
+      - name: إصلاح كل مسارات @/lib
+        run: |
+          echo "قبل:"
+          grep -rn "@/lib" src --include="*.ts" --include="*.tsx" | head -n 10
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/lib/|../lib/|g' {} \;
+          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i 's|@/components/|../components/|g' {} \;
+          echo "بعد:"
+          grep -rn "../lib" src/app/page.tsx | head -n 10
 
       - uses: actions/setup-java@v4
         with:
@@ -30,14 +38,7 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: إصلاح مسارات الاستيراد
-        run: |
-          sed -i "s|@/lib/unlimited-storage|../lib/unlimited-storage|g" src/app/page.tsx || true
-          sed -i "s|@/lib/db/scalable-db|../lib/db/scalable-db|g" src/app/page.tsx || true
-          sed -i "s|@/lib/native-helpers|../lib/native-helpers|g" src/app/page.tsx || true
-          echo "✅ تم إصلاح المسارات"
-
-      - name: بناء التطبيق
+      - name: بناء
         run: |
           npm install
           npm run build
