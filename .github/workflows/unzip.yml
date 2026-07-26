@@ -14,26 +14,21 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Unzip project
+      - name: Unzip directly
         run: |
           rm -rf extracted
-          unzip -t proof-daftar-github-ready.zip > unzip_test.log 2>&1
-          test_code=$?
 
-          if [ "$test_code" -eq 2 ]; then
-            echo "ZIP file is corrupted or unreadable:"
-            sed -n '1,200p' unzip_test.log
-            exit 2
-          fi
-
-          unzip -o proof-daftar-github-ready.zip -d extracted > unzip_extract.log 2>&1 || echo "Unzip completed with warnings; continuing"
-          sed -n '1,200p' unzip_extract.log || true
+          unzip -o proof-daftar-github-ready.zip -d extracted || true
 
           rm -rf extracted/.github
-          rsync -a --exclude='.git' extracted/ ./
-          rm -rf extracted
           rm -f proof-daftar-github-ready.zip
-          rm -f unzip_test.log unzip_extract.log
+
+          find extracted -type d -exec chmod 755 {} \;
+          find extracted -type f -exec chmod 644 {} \;
+
+          shopt -s dotglob
+          cp -R extracted/* .
+          rm -rf extracted
 
       - name: Commit extracted files
         run: |
