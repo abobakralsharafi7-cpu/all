@@ -1,7 +1,5 @@
-name: بناء بروف دفتر APK
+name: بناء APK بروف دفتر
 on: [push, workflow_dispatch]
-permissions:
-  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,10 +12,10 @@ jobs:
             sudo apt-get install -y unzip -qq
             rm -rf project src public icons 2>/dev/null || true
             unzip -o proof-daftar-github-ready.zip
-            cp -r project/* . || true
+            cp -r project/* . 2>/dev/null || true
             cp -r project/.* . 2>/dev/null || true
             rm -rf project proof-daftar-github-ready.zip
-            echo "=== تأكد من الملفات ==="
+            echo "=== الملفات ==="
             ls -lh src/lib/ | head -n 20
           fi
 
@@ -32,7 +30,14 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: بناء
+      - name: إصلاح مسارات الاستيراد
+        run: |
+          sed -i "s|@/lib/unlimited-storage|../lib/unlimited-storage|g" src/app/page.tsx || true
+          sed -i "s|@/lib/db/scalable-db|../lib/db/scalable-db|g" src/app/page.tsx || true
+          sed -i "s|@/lib/native-helpers|../lib/native-helpers|g" src/app/page.tsx || true
+          echo "✅ تم إصلاح المسارات"
+
+      - name: بناء التطبيق
         run: |
           npm install
           npm run build
