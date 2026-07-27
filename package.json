@@ -1,0 +1,33 @@
+{
+  "name": "proof-daftar",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/build-next.mjs",
+    "start": "npx serve out",
+    "cap:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.4.4",
+    "@capacitor/core": "7.4.4",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.4.4",
+    "@next/swc-wasm-nodejs": "^16.2.6",
+    "@tailwindcss/postcss": "4.1.17",
+    "@types/node": "22.19.15",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "postcss": "8.5.8",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3"
+  }
+}
