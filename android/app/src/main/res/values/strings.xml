@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Proof Daftar</string>
+    <string name="title_activity_main">Proof Daftar</string>
+    <string name="package_name">com.professor.proofdaftar</string>
+    <string name="custom_url_scheme">com.professor.proofdaftar</string>
+</resources>
