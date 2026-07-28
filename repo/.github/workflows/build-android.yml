@@ -1,0 +1,97 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  android:
+    name: Build signed release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint --if-present || true
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build web app
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      # ===== استعادة مفتاح التوقيع الخاص من GitHub Secrets =====
+      - name: Restore keystore
+        id: keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "path=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed release AAB + APK
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        working-directory: android
+        env:
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew bundleRelease assembleRelease --no-daemon
+
+      - name: Build debug APK (fallback when no keystore configured)
+        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
+        working-directory: android
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload release AAB (for Google Play)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-daftar-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload release APK
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-daftar-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload debug APK
+        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-daftar-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

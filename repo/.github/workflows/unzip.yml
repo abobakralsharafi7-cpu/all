@@ -1,0 +1,39 @@
+name: Unzip uploaded project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Unzip directly
+        run: |
+          rm -rf extracted
+
+          unzip -o proof-daftar-github-ready.zip -d extracted || true
+
+          rm -rf extracted/.github
+          rm -f proof-daftar-github-ready.zip
+
+          find extracted -type d -exec chmod 755 {} \;
+          find extracted -type f -exec chmod 644 {} \;
+
+          shopt -s dotglob
+          cp -R extracted/* .
+          rm -rf extracted
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          git commit -m "Extract project files" || echo "No changes to commit"
+          git push
