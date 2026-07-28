@@ -1,0 +1,116 @@
+apply plugin: 'com.android.application'
+
+import groovy.json.JsonSlurper
+
+// ===== نظام الإصدارات: يُقرأ رقم الإصدار من package.json =====
+def pkgJson = new JsonSlurper().parseText(file('../../package.json').text)
+def appVersionName = pkgJson.version ?: "1.0.0"
+// versionCode يتزايد تلقائيًا مع كل بناء (BUILD_NUMBER من CI) — مطلوب لرفع التحديثات على Google Play
+def appVersionCode = (System.getenv("BUILD_NUMBER") ?: "1") as Integer
+
+android {
+    namespace "com.professor.proofdaftar"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.professor.proofdaftar"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appVersionCode
+        versionName appVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        resValue "string", "app_version_name", appVersionName
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+
+    // ===== التوقيع الخاص =====
+    // المفاتيح تُقرأ من متغيرات البيئة أو من ملف keystore.properties (غير مرفوع على Git)
+    signingConfigs {
+        release {
+            def propsFile = rootProject.file("keystore.properties")
+            if (propsFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(propsFile))
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            } else if (System.getenv("KEYSTORE_PATH")) {
+                storeFile file(System.getenv("KEYSTORE_PATH"))
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+            enableV4Signing true
+        }
+    }
+
+    buildTypes {
+        release {
+            // ===== تشويش وتصغير الكود (R8) =====
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable false
+            def propsFile = rootProject.file("keystore.properties")
+            if (propsFile.exists() || System.getenv("KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    packagingOptions {
+        // منع تسريب معلومات البناء
+        exclude 'META-INF/*.version'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'kotlin/**'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
